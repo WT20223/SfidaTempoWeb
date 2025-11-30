@@ -5,85 +5,84 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sfida del Tempo - Cloud</title>
     
-    <!-- Librerie Essenziali -->
+    <!-- Librerie Essenziali (Caricate come GLOBALI per evitare errori di importazione) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Configurazione Moduli per Firebase -->
-    <script type="importmap">
-    {
-      "imports": {
-        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
-        "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
-        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
-      }
-    }
-    </script>
-
     <style>
-        body { background-color: #f8fafc; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
+        body { 
+            background-color: #f8fafc; 
+            touch-action: manipulation; 
+            -webkit-tap-highlight-color: transparent; 
+            user-select: none; 
+        }
         .animate-pulse-custom { animation: pulse-custom 2s infinite; }
-        @keyframes pulse-custom { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        @keyframes pulse-custom { 
+            0%, 100% { transform: scale(1); } 
+            50% { transform: scale(1.05); } 
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
+    <!-- 
+       IMPORTANTE: Usa 'text/babel' e 'data-type="module"' 
+       per usare sia JSX che gli import di Firebase.
+    -->
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect, useRef } from 'react';
-        import ReactDOM from 'react-dom/client';
-        import { initializeApp } from 'firebase/app';
-        import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-        import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, increment } from 'firebase/firestore';
+        // 1. Usiamo React dalle variabili globali (evita l'errore "module specifier 'react'")
+        const { useState, useEffect, useRef } = React;
+        const ReactDOM = window.ReactDOM;
 
-        // --- ICONE INTEGRATE (SVG diretti per evitare errori) ---
-        const Icon = ({ path, className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-                <path d={path} />
-            </svg>
+        // 2. Importiamo Firebase direttamente da URL completi (Funziona ovunque)
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, increment } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // --- ICONE INTEGRATE (SVG diretti per evitare errori di libreria) ---
+        const IconBase = ({ children, className, ...props }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>
         );
-        // Definizioni icone
+        
         const Icons = {
-            Trophy: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M9 22a7 7 0 1 0 6 0A7 7 0 0 0 9 22v-1"/><path d="M11 22v-1"/></svg>,
-            AlertCircle: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>,
-            ShoppingBag: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>,
-            History: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>,
-            Trash2: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
-            Home: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
-            Edit2: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>,
-            Save: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
-            Plus: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
-            X: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
-            Pencil: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>,
-            RefreshCw: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></IconBase>,
-            Sparkles: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
+            Trophy: (p) => <IconBase {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M9 22a7 7 0 1 0 6 0A7 7 0 0 0 9 22v-1"/><path d="M11 22v-1"/></IconBase>,
+            AlertCircle: (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></IconBase>,
+            ShoppingBag: (p) => <IconBase {...p}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></IconBase>,
+            History: (p) => <IconBase {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></IconBase>,
+            Trash2: (p) => <IconBase {...p}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></IconBase>,
+            Home: (p) => <IconBase {...p}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></IconBase>,
+            Edit2: (p) => <IconBase {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></IconBase>,
+            Save: (p) => <IconBase {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></IconBase>,
+            Plus: (p) => <IconBase {...p}><path d="M5 12h14"/><path d="M12 5v14"/></IconBase>,
+            X: (p) => <IconBase {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></IconBase>,
+            Pencil: (p) => <IconBase {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></IconBase>,
+            RefreshCw: (p) => <IconBase {...p}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></IconBase>,
+            Sparkles: (p) => <IconBase {...p}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></IconBase>
         };
 
         // -----------------------------------------------------------
-        // ⚠️ INCOLLA QUI I TUOI DATI DI FIREBASE ⚠️
+        // CONFIGURAZIONE FIREBASE (GIÀ INSERITA DA ME CON I TUOI DATI)
         // -----------------------------------------------------------
         const firebaseConfig = {
-  apiKey: "AIzaSyDOXOj-abUg2RdTGyABU_FOz-sJEY-5PLk",
-  authDomain: "sfida-tempo-laura-nov2025.firebaseapp.com",
-  projectId: "sfida-tempo-laura-nov2025",
-  storageBucket: "sfida-tempo-laura-nov2025.firebasestorage.app",
-  messagingSenderId: "230236750864",
-  appId: "1:230236750864:web:6694258c50855987e43695"
-};
+            apiKey: "AIzaSyDOXOj-abUg2RdTGyABU_FOz-sJEY-5PLk",
+            authDomain: "sfida-tempo-laura-nov2025.firebaseapp.com",
+            projectId: "sfida-tempo-laura-nov2025",
+            storageBucket: "sfida-tempo-laura-nov2025.firebasestorage.app",
+            messagingSenderId: "230236750864",
+            appId: "1:230236750864:web:6694258c50855987e43695"
+        };
         // -----------------------------------------------------------
 
         let app, auth, db;
         try {
-            // Inizializza solo se la config è valida
-            if (firebaseConfig.apiKey !== "INCOLLA_QUI_TUA_API_KEY") {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-            }
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
         } catch (e) {
-            console.error("Errore Firebase:", e);
+            console.error("Errore inizializzazione:", e);
         }
 
         const DEFAULT_CONFIG = {
@@ -133,11 +132,11 @@
             const [modal, setModal] = useState({ open: false, title: '', msg: '', action: null, destructive: false });
             const [upsert, setUpsert] = useState({ open: false, type: 'gain', data: null });
 
+            // AUTH & SYNC ROBUSTA
             useEffect(() => {
-                if(!auth) { setLoading(false); return; } // Se manca config, stop loading
                 const init = async () => { 
                     try { await signInAnonymously(auth); } 
-                    catch(e) { console.error("Login fallito", e); alert("Errore login database."); setLoading(false); } 
+                    catch(e) { console.error("Login fallito:", e); alert("Impossibile connettersi al database. Controlla le regole o la connessione."); setLoading(false); } 
                 };
                 init();
                 return onAuthStateChanged(auth, user => {
@@ -153,7 +152,7 @@
                         setLoading(false);
                     }, (err) => {
                         console.error("Sync Error:", err);
-                        if(err.code === 'permission-denied') alert("ERRORE: Database bloccato. Imposta le regole su 'allow read, write: if true;'");
+                        if(err.code === 'permission-denied') alert("ERRORE PERMESSI: Il database è bloccato. Vai su Firebase > Firestore > Regole e impostale su 'allow read, write: if true;'");
                         setLoading(false);
                     });
                     return () => unsub();
@@ -162,19 +161,21 @@
 
             useEffect(() => { if(score!==prevScore.current){setAnimateScore(true); setTimeout(()=>setAnimateScore(false),400); prevScore.current=score;} }, [score]);
 
+            // AZIONI
             const runAction = async (pts, desc, type) => {
-                if(!db) return;
                 try {
                     await setDoc(doc(db, 'family', 'data'), { 
                         score: increment(pts), 
                         history: arrayUnion({ id:Date.now(), desc, pts, ts:Date.now(), type }) 
                     }, { merge: true });
                     setModal({...modal, open:false});
-                } catch(e) { console.error(e); alert("Errore salvataggio"); }
+                } catch(e) { 
+                    console.error(e); 
+                    alert("Errore salvataggio: " + e.message); 
+                }
             };
 
             const saveItem = async (d) => {
-                if(!db) return;
                 const newItem = { id: d.id||Date.now(), pts: parseInt(d.val), cost: parseInt(d.val), label: d.label, name: d.label, sub: d.sub, emoji: d.emoji||(d.type==='shop'?'🎁':'⚡'), icon: d.emoji||'🎁' };
                 if(d.type==='loss') newItem.pts = -Math.abs(newItem.pts);
                 const newCfg = {...config};
@@ -184,19 +185,17 @@
                 await setDoc(doc(db,'family','data'), {config: newCfg}, {merge:true});
             };
             const delItem = async (type, id) => {
-                if(!db || !confirm("Eliminare?")) return;
+                if(!confirm("Eliminare?")) return;
                 const newCfg = {...config};
                 const k = type==='gain'?'gains':type==='loss'?'losses':'shop';
                 newCfg[k] = newCfg[k].filter(i=>i.id!==id);
                 await setDoc(doc(db,'family','data'), {config: newCfg}, {merge:true});
             };
             const updateTitle = async () => {
-                if(!db) return;
                 const t = prompt("Nome Famiglia:", config.familyName);
                 if(t) await setDoc(doc(db,'family','data'), {config: {...config, familyName:t}}, {merge:true});
             };
             const doReset = async () => {
-                if(!db) return;
                 await setDoc(doc(db, 'family', 'data'), { score: 0, history: [], config: config });
                 setModal({...modal, open:false});
             };
@@ -204,8 +203,7 @@
             const getLvl = (s) => s<0?{l:"IN DEBITO",c:"bg-red-500",t:"text-red-600",b:"bg-red-50"}:s>=200?{l:"LEGGENDARIO",c:"bg-yellow-500",t:"text-yellow-600",b:"bg-yellow-50"}:s>=100?{l:"SUPER PRO",c:"bg-green-500",t:"text-green-600",b:"bg-green-50"}:s>=50?{l:"PRO",c:"bg-blue-500",t:"text-blue-600",b:"bg-blue-50"}:{l:"PRINCIPIANTE",c:"bg-slate-400",t:"text-slate-600",b:"bg-slate-50"};
             const lvl = getLvl(score);
 
-            if(!auth) return <div className="h-screen flex flex-col items-center justify-center p-6 text-center font-sans"><Icons.AlertCircle className="w-16 h-16 text-orange-500 mb-4"/><h1 className="text-2xl font-bold">Configurazione Mancante</h1><p className="text-slate-500 mt-2 mb-6">Incolla le chiavi di Firebase nel file index.html</p></div>;
-            if(loading) return <div className="h-screen flex items-center justify-center"><Icons.RefreshCw className="w-10 h-10 animate-spin text-pink-500"/></div>;
+            if(loading) return <div className="h-screen flex items-center justify-center flex-col"><Icons.RefreshCw className="w-10 h-10 animate-spin text-pink-500"/><p className="text-slate-400 text-xs mt-4">Connessione al Cloud...</p></div>;
 
             return (
                 <div className={`min-h-screen pb-32 transition-colors duration-500 ${lvl.b}`} style={{zoom:'1.2'}}>
