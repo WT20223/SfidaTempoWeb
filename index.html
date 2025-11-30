@@ -12,8 +12,6 @@
 
     <style>
         body { background-color: #f8fafc; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
-        .animate-pulse-custom { animation: pulse-custom 2s infinite; }
-        @keyframes pulse-custom { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
     </style>
 </head>
 <body>
@@ -84,7 +82,6 @@
             ]
         };
 
-        // --- COMPONENTI UI ---
         const AnimatedNumber = ({ value }) => {
             const [displayValue, setDisplayValue] = useState(value);
             useEffect(() => {
@@ -127,16 +124,11 @@
             const [upsert, setUpsert] = useState({ open: false, type: 'gain', data: null });
             const [errorMsg, setErrorMsg] = useState(null);
 
-            // --- SINCRONIZZAZIONE DB ---
             useEffect(() => {
                 let unsubSnapshot = null;
-                
                 const startSync = async () => {
                     try {
-                        // 1. Aspetta login (anche se già loggato, conferma lo stato)
                         await signInAnonymously(auth);
-                        
-                        // 2. Ascolta il DB
                         unsubSnapshot = onSnapshot(doc(db, 'family', 'data'), (snap) => {
                             if(snap.exists()) {
                                 const d = snap.data();
@@ -144,7 +136,6 @@
                                 setHistory((d.history||[]).sort((a,b)=>b.ts-a.ts));
                                 if(d.config) setConfig(d.config);
                             } else {
-                                // Se il documento non esiste, crealo
                                 setDoc(doc(db, 'family', 'data'), { score: 0, history: [], config: DEFAULT_CONFIG }, { merge: true });
                             }
                             setLoading(false);
@@ -155,24 +146,26 @@
                         });
                     } catch(e) { 
                         console.error("Login fallito:", e); 
-                        setErrorMsg("Errore Login: " + e.message + " - Verifica in Console Firebase se Auth Anonima è attiva."); 
+                        setErrorMsg("Errore Login: " + e.message); 
                         setLoading(false); 
                     } 
                 };
-
                 startSync();
-
                 return () => { if(unsubSnapshot) unsubSnapshot(); };
             }, []);
 
             useEffect(() => { if(score!==prevScore.current){setAnimateScore(true); setTimeout(()=>setAnimateScore(false), 500); prevScore.current=score;} }, [score]);
 
-            // --- AZIONI ---
+            // --- AZIONE CORE (FIXED) ---
             const runAction = async (pts, desc, type) => {
                 try {
+                    // Fix: Assicura che pts sia un numero
+                    const safePts = parseInt(pts);
+                    if (isNaN(safePts)) throw new Error("Valore non valido");
+
                     await setDoc(doc(db, 'family', 'data'), { 
-                        score: increment(pts), 
-                        history: arrayUnion({ id:Date.now(), desc, pts, ts:Date.now(), type }) 
+                        score: increment(safePts), 
+                        history: arrayUnion({ id:Date.now(), desc, pts: safePts, ts:Date.now(), type }) 
                     }, { merge: true });
                     setModal(prev => ({...prev, open: false})); 
                 } catch(e) { console.error(e); alert("Errore Salvataggio: " + e.message); }
@@ -181,9 +174,14 @@
             const saveItem = async (d) => {
                 const newItem = { id: d.id||Date.now(), pts: parseInt(d.val), cost: parseInt(d.val), label: d.label, name: d.label, sub: d.sub, emoji: d.emoji||(d.type==='shop'?'🎁':'⚡'), icon: d.emoji||'🎁' };
                 if(d.type==='loss') newItem.pts = -Math.abs(newItem.pts);
+                // Maintain isBig if it existed
+                if(d.id) {
+                    const oldItem = config[d.type==='gain'?'gains':d.type==='loss'?'losses':'shop'].find(i=>i.id===d.id);
+                    if(oldItem && oldItem.isBig) newItem.isBig = true;
+                }
                 const newCfg = {...config};
                 const k = d.type==='gain'?'gains':d.type==='loss'?'losses':'shop';
-                if(d.id) newCfg[k] = newCfg[k].map(i=>i.id===d.id?{...i, ...newItem, isBig:i.isBig, special:i.special}:i);
+                if(d.id) newCfg[k] = newCfg[k].map(i=>i.id===d.id?{...i, ...newItem, special:i.special}:i);
                 else newCfg[k] = [...newCfg[k], newItem];
                 await setDoc(doc(db,'family','data'), {config: newCfg}, {merge:true});
             };
@@ -206,7 +204,36 @@
                 setModal(prev => ({...prev, open: false}));
             };
 
-            // --- RENDER ---
+            // --- GESTORE CLICK UNIFICATO ---
+            const handleItemClick = (item, secType) => {
+                if (editMode) {
+                    setUpsert({open:true, type:secType, data:item});
+                    return;
+                }
+                
+                // Calcola punti (Shop e Loss sono negativi)
+                let finalPts = item.pts;
+                if (secType === 'shop') finalPts = -Math.abs(item.cost);
+                if (secType === 'loss') finalPts = -Math.abs(item.pts);
+
+                // Etichetta
+                const label = secType === 'shop' ? `🛍️ ${item.name}` : item.label;
+
+                // LOGICA CONFERMA: Solo se è "isBig" (Bugia) 
+                if (item.isBig) {
+                    setModal({
+                        open: true, 
+                        title: 'Attenzione!', 
+                        msg: `Confermi: ${item.label}?`, 
+                        action: () => runAction(finalPts, label, secType), 
+                        destructive: true
+                    });
+                } else {
+                    // Altrimenti esegui SUBITO
+                    runAction(finalPts, label, secType);
+                }
+            };
+
             const getLvl = (s) => s<0?{l:"IN DEBITO",c:"bg-red-500",t:"text-red-600",b:"bg-red-50"}:s>=200?{l:"LEGGENDARIO",c:"bg-yellow-500",t:"text-yellow-600",b:"bg-yellow-50"}:s>=100?{l:"SUPER PRO",c:"bg-green-500",t:"text-green-600",b:"bg-green-50"}:s>=50?{l:"PRO",c:"bg-blue-500",t:"text-blue-600",b:"bg-blue-50"}:{l:"PRINCIPIANTE",c:"bg-slate-400",t:"text-slate-600",b:"bg-slate-50"};
             const lvl = getLvl(score);
 
@@ -250,12 +277,7 @@
                                 <div className={`grid ${sec.k==='shop'?'grid-cols-1':'grid-cols-2'} gap-3`}>
                                     {config[sec.k].map(item => (
                                         <button key={item.id} disabled={!editMode && sec.k==='shop' && score < item.cost} 
-                                            onClick={() => {
-                                                if(editMode) setUpsert({open:true, type:sec.t, data:item});
-                                                else if(sec.k==='gain') runAction(item.pts, item.label, 'gain');
-                                                else if(sec.k==='losses') setModal({open:true, title:'Confermi?', msg:`Togli ${Math.abs(item.pts)} punti?`, action:()=>runAction(item.pts, item.label, 'loss'), destructive:true});
-                                                else setModal({open:true, title:'Riscatta', msg:`Spendi ${item.cost} XP?`, action:()=>runAction(-item.cost, `🛍️ ${item.name}`, 'shop')});
-                                            }}
+                                            onClick={() => handleItemClick(item, sec.t)}
                                             className={`relative p-4 rounded-3xl border-2 text-left transition-all active:scale-95 shadow-sm bg-white border-slate-100 ${sec.k==='shop'?'flex justify-between items-center':'flex flex-col justify-between h-32'} ${editMode?'border-dashed border-slate-300':''} ${item.special?'bg-gradient-to-br from-amber-50 to-orange-50 border-orange-100 col-span-2':''} ${sec.k==='shop'&&score<item.cost&&!editMode?'opacity-50 grayscale':''}`}
                                         >
                                             {editMode && <div onClick={(e)=>{e.stopPropagation(); delItem(sec.t, item.id)}} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full z-10"><Icons.X className="w-4 h-4"/></div>}
