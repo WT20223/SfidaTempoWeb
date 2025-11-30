@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sfida del Tempo - Cloud</title>
     
+    <!-- Librerie Essenziali -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- Configurazione Moduli per Firebase -->
     <script type="importmap">
     {
       "imports": {
@@ -36,38 +38,50 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
         import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, increment } from 'firebase/firestore';
 
-        // --- ICONE ---
-        const IconBase = ({ children, ...p }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>{children}</svg>;
-        const Trophy = (p) => <IconBase {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M9 22a7 7 0 1 0 6 0A7 7 0 0 0 9 22v-1"/><path d="M11 22v-1"/></IconBase>;
-        const AlertCircle = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></IconBase>;
-        const ShoppingBag = (p) => <IconBase {...p}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></IconBase>;
-        const History = (p) => <IconBase {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></IconBase>;
-        const Trash2 = (p) => <IconBase {...p}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></IconBase>;
-        const Sparkles = (p) => <IconBase {...p}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></IconBase>;
-        const Home = (p) => <IconBase {...p}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></IconBase>;
-        const Edit2 = (p) => <IconBase {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></IconBase>;
-        const Save = (p) => <IconBase {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></IconBase>;
-        const Plus = (p) => <IconBase {...p}><path d="M5 12h14"/><path d="M12 5v14"/></IconBase>;
-        const X = (p) => <IconBase {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></IconBase>;
-        const Pencil = (p) => <IconBase {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></IconBase>;
-        const RefreshCw = (p) => <IconBase {...p}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></IconBase>;
-        const WifiOff = (p) => <IconBase {...p}><line x1="1" x2="23" y1="1" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" x2="12.01" y1="20" y2="20"/></IconBase>;
-
-        // --- CONFIGURAZIONE FIREBASE (TUE CHIAVI) ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyDOXOj-abUg2RdTGyABU_FOz-sJEY-5PLk",
-            authDomain: "sfida-tempo-laura-nov2025.firebaseapp.com",
-            projectId: "sfida-tempo-laura-nov2025",
-            storageBucket: "sfida-tempo-laura-nov2025.firebasestorage.app",
-            messagingSenderId: "230236750864",
-            appId: "1:230236750864:web:6694258c50855987e43695"
+        // --- ICONE INTEGRATE (SVG diretti per evitare errori) ---
+        const Icon = ({ path, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d={path} />
+            </svg>
+        );
+        // Definizioni icone
+        const Icons = {
+            Trophy: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M9 22a7 7 0 1 0 6 0A7 7 0 0 0 9 22v-1"/><path d="M11 22v-1"/></svg>,
+            AlertCircle: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>,
+            ShoppingBag: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>,
+            History: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>,
+            Trash2: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
+            Home: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+            Edit2: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>,
+            Save: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+            Plus: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
+            X: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
+            Pencil: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>,
+            RefreshCw: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></IconBase>,
+            Sparkles: (p) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
         };
+
+        // -----------------------------------------------------------
+        // ⚠️ INCOLLA QUI I TUOI DATI DI FIREBASE ⚠️
+        // -----------------------------------------------------------
+        const firebaseConfig = {
+  apiKey: "AIzaSyDOXOj-abUg2RdTGyABU_FOz-sJEY-5PLk",
+  authDomain: "sfida-tempo-laura-nov2025.firebaseapp.com",
+  projectId: "sfida-tempo-laura-nov2025",
+  storageBucket: "sfida-tempo-laura-nov2025.firebasestorage.app",
+  messagingSenderId: "230236750864",
+  appId: "1:230236750864:web:6694258c50855987e43695"
+};
+        // -----------------------------------------------------------
 
         let app, auth, db;
         try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
+            // Inizializza solo se la config è valida
+            if (firebaseConfig.apiKey !== "INCOLLA_QUI_TUA_API_KEY") {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            }
         } catch (e) {
             console.error("Errore Firebase:", e);
         }
@@ -105,7 +119,7 @@
             const [data, setData] = useState({ label: '', sub: '', val: '', emoji: '' });
             useEffect(() => { if(isOpen) setData(initialData ? { label: initialData.label||initialData.name, sub: initialData.sub||'', val: Math.abs(initialData.pts||initialData.cost), emoji: initialData.emoji||initialData.icon } : { label: '', sub: '', val: '', emoji: '' }); }, [isOpen, initialData]);
             if (!isOpen) return null;
-            return <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6"><h3 className="text-xl font-bold mb-4 flex items-center gap-2">{initialData?<Pencil className="w-5 h-5 text-blue-500"/>:<Plus className="w-5 h-5 text-blue-500"/>}{initialData?'Modifica':'Aggiungi'}</h3><div className="space-y-3"><div><label className="text-xs font-bold text-slate-400">EMOJI</label><input className="w-full p-3 bg-slate-50 rounded-xl border" maxLength={2} value={data.emoji} onChange={e=>setData({...data, emoji:e.target.value})} placeholder="🚀"/></div><div><label className="text-xs font-bold text-slate-400">NOME</label><input className="w-full p-3 bg-slate-50 rounded-xl border font-bold" value={data.label} onChange={e=>setData({...data, label:e.target.value})} placeholder="Nome"/></div>{type!=='shop'&&<div><label className="text-xs font-bold text-slate-400">DETTAGLI</label><input className="w-full p-3 bg-slate-50 rounded-xl border" value={data.sub} onChange={e=>setData({...data, sub:e.target.value})} placeholder="Dettagli"/></div>}<div><label className="text-xs font-bold text-slate-400">VALORE</label><input type="number" className="w-full p-3 bg-slate-50 rounded-xl border font-mono font-bold" value={data.val} onChange={e=>setData({...data, val:e.target.value})}/></div></div><div className="flex gap-2 justify-end mt-6"><button onClick={onClose} className="px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100">Annulla</button><button onClick={()=>{if(!data.label||!data.val)return alert("Manca nome o valore"); onSave({...data, type, id: initialData?.id}); onClose();}} className="px-6 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg">Salva</button></div></div></div>;
+            return <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6"><h3 className="text-xl font-bold mb-4 flex items-center gap-2">{initialData?<Icons.Pencil className="w-5 h-5 text-blue-500"/>:<Icons.Plus className="w-5 h-5 text-blue-500"/>}{initialData?'Modifica':'Aggiungi'}</h3><div className="space-y-3"><div><label className="text-xs font-bold text-slate-400">EMOJI</label><input className="w-full p-3 bg-slate-50 rounded-xl border" maxLength={2} value={data.emoji} onChange={e=>setData({...data, emoji:e.target.value})} placeholder="🚀"/></div><div><label className="text-xs font-bold text-slate-400">NOME</label><input className="w-full p-3 bg-slate-50 rounded-xl border font-bold" value={data.label} onChange={e=>setData({...data, label:e.target.value})} placeholder="Nome"/></div>{type!=='shop'&&<div><label className="text-xs font-bold text-slate-400">DETTAGLI</label><input className="w-full p-3 bg-slate-50 rounded-xl border" value={data.sub} onChange={e=>setData({...data, sub:e.target.value})} placeholder="Dettagli"/></div>}<div><label className="text-xs font-bold text-slate-400">VALORE</label><input type="number" className="w-full p-3 bg-slate-50 rounded-xl border font-mono font-bold" value={data.val} onChange={e=>setData({...data, val:e.target.value})}/></div></div><div className="flex gap-2 justify-end mt-6"><button onClick={onClose} className="px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100">Annulla</button><button onClick={()=>{if(!data.label||!data.val)return alert("Manca nome o valore"); onSave({...data, type, id: initialData?.id}); onClose();}} className="px-6 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg">Salva</button></div></div></div>;
         };
 
         function App() {
@@ -119,29 +133,27 @@
             const [modal, setModal] = useState({ open: false, title: '', msg: '', action: null, destructive: false });
             const [upsert, setUpsert] = useState({ open: false, type: 'gain', data: null });
 
-            // AUTH & SYNC ROBUSTA
             useEffect(() => {
+                if(!auth) { setLoading(false); return; } // Se manca config, stop loading
                 const init = async () => { 
                     try { await signInAnonymously(auth); } 
-                    catch(e) { console.error("Login fallito:", e); alert("Impossibile connettersi al database. Controlla le regole o la connessione."); setLoading(false); } 
+                    catch(e) { console.error("Login fallito", e); alert("Errore login database."); setLoading(false); } 
                 };
                 init();
                 return onAuthStateChanged(auth, user => {
                     if(!user) return;
-                    // Sincronizzazione in tempo reale
                     const unsub = onSnapshot(doc(db, 'family', 'data'), (snap) => {
                         if(snap.exists()) {
                             const d = snap.data();
                             setScore(d.score||0); setHistory((d.history||[]).sort((a,b)=>b.ts-a.ts));
                             if(d.config) setConfig(d.config);
                         } else {
-                            // Creazione documento iniziale se non esiste
                             setDoc(doc(db, 'family', 'data'), { score: 0, history: [], config: DEFAULT_CONFIG });
                         }
                         setLoading(false);
                     }, (err) => {
                         console.error("Sync Error:", err);
-                        if(err.code === 'permission-denied') alert("ERRORE PERMESSI: Il database è bloccato. Vai su Firebase > Firestore > Regole e impostale su 'allow read, write: if true;'");
+                        if(err.code === 'permission-denied') alert("ERRORE: Database bloccato. Imposta le regole su 'allow read, write: if true;'");
                         setLoading(false);
                     });
                     return () => unsub();
@@ -150,21 +162,19 @@
 
             useEffect(() => { if(score!==prevScore.current){setAnimateScore(true); setTimeout(()=>setAnimateScore(false),400); prevScore.current=score;} }, [score]);
 
-            // AZIONI CON SETDOC MERGE (Più sicuro)
             const runAction = async (pts, desc, type) => {
+                if(!db) return;
                 try {
                     await setDoc(doc(db, 'family', 'data'), { 
                         score: increment(pts), 
                         history: arrayUnion({ id:Date.now(), desc, pts, ts:Date.now(), type }) 
                     }, { merge: true });
                     setModal({...modal, open:false});
-                } catch(e) { 
-                    console.error(e); 
-                    alert("Errore salvataggio: " + e.message); 
-                }
+                } catch(e) { console.error(e); alert("Errore salvataggio"); }
             };
 
             const saveItem = async (d) => {
+                if(!db) return;
                 const newItem = { id: d.id||Date.now(), pts: parseInt(d.val), cost: parseInt(d.val), label: d.label, name: d.label, sub: d.sub, emoji: d.emoji||(d.type==='shop'?'🎁':'⚡'), icon: d.emoji||'🎁' };
                 if(d.type==='loss') newItem.pts = -Math.abs(newItem.pts);
                 const newCfg = {...config};
@@ -174,17 +184,19 @@
                 await setDoc(doc(db,'family','data'), {config: newCfg}, {merge:true});
             };
             const delItem = async (type, id) => {
-                if(!confirm("Eliminare?")) return;
+                if(!db || !confirm("Eliminare?")) return;
                 const newCfg = {...config};
                 const k = type==='gain'?'gains':type==='loss'?'losses':'shop';
                 newCfg[k] = newCfg[k].filter(i=>i.id!==id);
                 await setDoc(doc(db,'family','data'), {config: newCfg}, {merge:true});
             };
             const updateTitle = async () => {
+                if(!db) return;
                 const t = prompt("Nome Famiglia:", config.familyName);
                 if(t) await setDoc(doc(db,'family','data'), {config: {...config, familyName:t}}, {merge:true});
             };
             const doReset = async () => {
+                if(!db) return;
                 await setDoc(doc(db, 'family', 'data'), { score: 0, history: [], config: config });
                 setModal({...modal, open:false});
             };
@@ -192,7 +204,8 @@
             const getLvl = (s) => s<0?{l:"IN DEBITO",c:"bg-red-500",t:"text-red-600",b:"bg-red-50"}:s>=200?{l:"LEGGENDARIO",c:"bg-yellow-500",t:"text-yellow-600",b:"bg-yellow-50"}:s>=100?{l:"SUPER PRO",c:"bg-green-500",t:"text-green-600",b:"bg-green-50"}:s>=50?{l:"PRO",c:"bg-blue-500",t:"text-blue-600",b:"bg-blue-50"}:{l:"PRINCIPIANTE",c:"bg-slate-400",t:"text-slate-600",b:"bg-slate-50"};
             const lvl = getLvl(score);
 
-            if(loading) return <div className="h-screen flex items-center justify-center flex-col"><RefreshCw className="w-10 h-10 animate-spin text-pink-500"/><p className="text-slate-400 text-xs mt-4">Connessione al Cloud...</p></div>;
+            if(!auth) return <div className="h-screen flex flex-col items-center justify-center p-6 text-center font-sans"><Icons.AlertCircle className="w-16 h-16 text-orange-500 mb-4"/><h1 className="text-2xl font-bold">Configurazione Mancante</h1><p className="text-slate-500 mt-2 mb-6">Incolla le chiavi di Firebase nel file index.html</p></div>;
+            if(loading) return <div className="h-screen flex items-center justify-center"><Icons.RefreshCw className="w-10 h-10 animate-spin text-pink-500"/></div>;
 
             return (
                 <div className={`min-h-screen pb-32 transition-colors duration-500 ${lvl.b}`} style={{zoom:'1.2'}}>
@@ -201,12 +214,12 @@
                     
                     <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-lg border-b border-slate-200/50 shadow-sm p-4 flex justify-between items-center">
                         <div onClick={editMode?updateTitle:null}>
-                            <div className="flex items-center gap-2"><div className="bg-pink-100 p-1.5 rounded-lg"><Home className="text-pink-500 w-4 h-4"/></div><h1 className={`font-bold text-lg text-slate-800 ${editMode&&'underline decoration-dashed decoration-pink-300'}`}>{config.familyName}</h1>{editMode&&<Edit2 className="w-3 h-3 text-slate-400"/>}</div>
+                            <div className="flex items-center gap-2"><div className="bg-pink-100 p-1.5 rounded-lg"><Icons.Home className="text-pink-500 w-4 h-4"/></div><h1 className={`font-bold text-lg text-slate-800 ${editMode&&'underline decoration-dashed decoration-pink-300'}`}>{config.familyName}</h1>{editMode&&<Icons.Edit2 className="w-3 h-3 text-slate-400"/>}</div>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded text-white ${lvl.c}`}>{lvl.l}</span>
                         </div>
                         <div className="flex items-center gap-4">
                             <div className={`text-right transition-transform duration-300 ${animateScore?'scale-125':''}`}><div className={`text-4xl font-black ${animateScore?'text-orange-500':lvl.t}`}>{score}<span className="text-base text-slate-400 ml-1">XP</span></div></div>
-                            <button onClick={()=>setEditMode(!editMode)} className={`p-2 rounded-full shadow ${editMode?'bg-slate-800 text-white':'bg-white text-slate-400'}`}>{editMode?<Save className="w-5 h-5"/>:<Edit2 className="w-5 h-5"/>}</button>
+                            <button onClick={()=>setEditMode(!editMode)} className={`p-2 rounded-full shadow ${editMode?'bg-slate-800 text-white':'bg-white text-slate-400'}`}>{editMode?<Icons.Save className="w-5 h-5"/>:<Icons.Edit2 className="w-5 h-5"/>}</button>
                         </div>
                     </div>
 
@@ -214,14 +227,14 @@
                         {editMode && <div className="bg-yellow-100 text-yellow-800 p-3 rounded-xl text-center text-xs font-bold animate-pulse">MODALITÀ MODIFICA ATTIVA</div>}
                         
                         {[
-                            {k:'gains', t:'gain', l:'Guadagna', i:<Trophy className="w-6 h-6 text-green-600"/>, c:'bg-green-100', btn:'bg-green-500'},
-                            {k:'losses', t:'loss', l:'Penalità', i:<AlertCircle className="w-6 h-6 text-red-600"/>, c:'bg-red-100', btn:'bg-red-500'},
-                            {k:'shop', t:'shop', l:'Premi', i:<ShoppingBag className="w-6 h-6 text-purple-600"/>, c:'bg-purple-100', btn:'bg-purple-500'}
+                            {k:'gains', t:'gain', l:'Guadagna', i:<Icons.Trophy className="w-6 h-6 text-green-600"/>, c:'bg-green-100', btn:'bg-green-500'},
+                            {k:'losses', t:'loss', l:'Penalità', i:<Icons.AlertCircle className="w-6 h-6 text-red-600"/>, c:'bg-red-100', btn:'bg-red-500'},
+                            {k:'shop', t:'shop', l:'Premi', i:<Icons.ShoppingBag className="w-6 h-6 text-purple-600"/>, c:'bg-purple-100', btn:'bg-purple-500'}
                         ].map(sec => (
                             <section key={sec.k} className="animate-in slide-in-from-bottom-4 duration-500">
                                 <div className="flex justify-between items-center mb-4 px-1">
                                     <div className="flex items-center gap-3"><div className={`p-2 rounded-xl ${sec.c}`}>{sec.i}</div><h2 className="font-bold text-slate-700 text-lg">{sec.l}</h2></div>
-                                    {editMode && <button onClick={()=>setUpsert({open:true, type:sec.t, data:null})} className={`${sec.btn} text-white p-2 rounded-lg shadow`}><Plus/></button>}
+                                    {editMode && <button onClick={()=>setUpsert({open:true, type:sec.t, data:null})} className={`${sec.btn} text-white p-2 rounded-lg shadow`}><Icons.Plus/></button>}
                                 </div>
                                 <div className={`grid ${sec.k==='shop'?'grid-cols-1':'grid-cols-2'} gap-3`}>
                                     {config[sec.k].map(item => (
@@ -234,7 +247,7 @@
                                             }}
                                             className={`relative p-4 rounded-3xl border-2 text-left transition-all active:scale-95 shadow-sm bg-white border-slate-100 ${sec.k==='shop'?'flex justify-between items-center':'flex flex-col justify-between h-32'} ${editMode?'border-dashed border-slate-300':''} ${item.special?'bg-gradient-to-br from-amber-50 to-orange-50 border-orange-100 col-span-2':''} ${sec.k==='shop'&&score<item.cost&&!editMode?'opacity-50 grayscale':''}`}
                                         >
-                                            {editMode && <div onClick={(e)=>{e.stopPropagation(); delItem(sec.t, item.id)}} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full z-10"><X className="w-4 h-4"/></div>}
+                                            {editMode && <div onClick={(e)=>{e.stopPropagation(); delItem(sec.t, item.id)}} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full z-10"><Icons.X className="w-4 h-4"/></div>}
                                             {sec.k!=='shop' ? (
                                                 <>
                                                     <div className="flex justify-between items-start"><span className="text-3xl">{item.emoji}</span><span className={`font-bold text-lg ${sec.k==='gains'?'text-green-600':'text-red-500'}`}>{sec.k==='gains'?'+':''}{item.pts}</span></div>
@@ -253,7 +266,7 @@
                         ))}
 
                         <section className="bg-white/80 backdrop-blur rounded-[2rem] p-6 shadow-lg border border-slate-100 mt-8">
-                            <div className="flex justify-between items-center mb-4 border-b pb-4"><div className="flex gap-2 items-center"><History className="text-slate-400"/><span className="font-bold text-slate-500 text-xs tracking-wider">STORICO</span></div><button onClick={()=>setModal({open:true, title:'Reset Totale', msg:'Cancelli tutto lo storico e i punti?', action:doReset, destructive:true})} className="text-xs font-bold text-red-400 flex items-center gap-1 bg-red-50 px-3 py-1 rounded-lg"><Trash2 className="w-3 h-3"/> Reset</button></div>
+                            <div className="flex justify-between items-center mb-4 border-b pb-4"><div className="flex gap-2 items-center"><Icons.History className="text-slate-400"/><span className="font-bold text-slate-500 text-xs tracking-wider">STORICO</span></div><button onClick={()=>setModal({open:true, title:'Reset Totale', msg:'Cancelli tutto lo storico e i punti?', action:doReset, destructive:true})} className="text-xs font-bold text-red-400 flex items-center gap-1 bg-red-50 px-3 py-1 rounded-lg"><Icons.Trash2 className="w-3 h-3"/> Reset</button></div>
                             <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
                                 {history.length===0 ? <div className="text-center py-8 text-slate-300 text-sm">Nessuna attività</div> : history.map((h,i)=>(
                                     <div key={i} className="flex justify-between items-center text-sm py-2 border-b border-slate-50 last:border-0"><div className="flex flex-col"><span className="font-bold text-slate-700">{h.desc}</span><span className="text-[10px] text-slate-400 font-mono">{new Date(h.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span></div><span className={`font-bold px-2 py-1 rounded text-xs ${h.pts>0?'bg-green-100 text-green-700':h.type==='shop'?'bg-purple-100 text-purple-700':'bg-red-100 text-red-700'}`}>{h.pts>0?'+':''}{h.pts}</span></div>
