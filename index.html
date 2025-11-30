@@ -23,7 +23,7 @@
 
         // --- FIREBASE IMPORT ---
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, increment } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
         // --- CONFIGURAZIONE ---
@@ -40,12 +40,9 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- ICONE ---
+        // --- ICONE SVG ---
         const IconBase = ({ children, className, ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
         const Icons = {
-            Trophy: (p) => <IconBase {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M9 22a7 7 0 1 0 6 0A7 7 0 0 0 9 22v-1"/><path d="M11 22v-1"/></IconBase>,
-            AlertCircle: (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></IconBase>,
-            ShoppingBag: (p) => <IconBase {...p}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></IconBase>,
             History: (p) => <IconBase {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></IconBase>,
             Trash2: (p) => <IconBase {...p}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></IconBase>,
             Home: (p) => <IconBase {...p}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></IconBase>,
@@ -58,8 +55,14 @@
             WifiOff: (p) => <IconBase {...p}><line x1="1" x2="23" y1="1" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" x2="12.01" y1="20" y2="20"/></IconBase>
         };
 
+        // --- DATI DEFAULT ---
         const DEFAULT_CONFIG = {
             familyName: "Casa Nostra",
+            sections: {
+                gain: { title: "Guadagna Punti", emoji: "🌟", bg: "bg-green-100", btn: "bg-green-500" },
+                loss: { title: "Penalità", emoji: "🚨", bg: "bg-red-100", btn: "bg-red-500" },
+                shop: { title: "Premi", emoji: "🎁", bg: "bg-purple-100", btn: "bg-purple-500" }
+            },
             gains: [
                 { id: 'def_1', pts: 5, label: "🌅 Pronta Mattino", sub: "Entro le 7:40", emoji: "⚡" },
                 { id: 'def_2', pts: 5, label: "🌙 Pronta Sera", sub: "Luci spente 21:30", emoji: "🛌" },
@@ -134,7 +137,14 @@
                                 const d = snap.data();
                                 setScore(d.score||0); 
                                 setHistory((d.history||[]).sort((a,b)=>b.ts-a.ts));
-                                if(d.config) setConfig(d.config);
+                                // Merge smart per assicurare che le sezioni esistano
+                                if(d.config) {
+                                    setConfig(prev => ({
+                                        ...prev,
+                                        ...d.config,
+                                        sections: d.config.sections || DEFAULT_CONFIG.sections
+                                    }));
+                                }
                             } else {
                                 setDoc(doc(db, 'family', 'data'), { score: 0, history: [], config: DEFAULT_CONFIG }, { merge: true });
                             }
@@ -156,13 +166,10 @@
 
             useEffect(() => { if(score!==prevScore.current){setAnimateScore(true); setTimeout(()=>setAnimateScore(false), 500); prevScore.current=score;} }, [score]);
 
-            // --- AZIONE CORE (FIXED) ---
             const runAction = async (pts, desc, type) => {
                 try {
-                    // Fix: Assicura che pts sia un numero
                     const safePts = parseInt(pts);
                     if (isNaN(safePts)) throw new Error("Valore non valido");
-
                     await setDoc(doc(db, 'family', 'data'), { 
                         score: increment(safePts), 
                         history: arrayUnion({ id:Date.now(), desc, pts: safePts, ts:Date.now(), type }) 
@@ -174,7 +181,6 @@
             const saveItem = async (d) => {
                 const newItem = { id: d.id||Date.now(), pts: parseInt(d.val), cost: parseInt(d.val), label: d.label, name: d.label, sub: d.sub, emoji: d.emoji||(d.type==='shop'?'🎁':'⚡'), icon: d.emoji||'🎁' };
                 if(d.type==='loss') newItem.pts = -Math.abs(newItem.pts);
-                // Maintain isBig if it existed
                 if(d.id) {
                     const oldItem = config[d.type==='gain'?'gains':d.type==='loss'?'losses':'shop'].find(i=>i.id===d.id);
                     if(oldItem && oldItem.isBig) newItem.isBig = true;
@@ -199,37 +205,41 @@
                 if(t) await setDoc(doc(db,'family','data'), {config: {...config, familyName:t}}, {merge:true});
             };
 
+            const updateSection = async (key) => {
+                if(!editMode) return;
+                const current = config.sections[key];
+                const newTitle = prompt("Nuovo Titolo Sezione:", current.title);
+                if(!newTitle) return;
+                const newEmoji = prompt("Nuova Emoji (es: 🌟, 🚨):", current.emoji);
+                if(!newEmoji) return;
+                
+                const newConfig = { 
+                    ...config, 
+                    sections: { 
+                        ...config.sections, 
+                        [key]: { ...current, title: newTitle, emoji: newEmoji } 
+                    } 
+                };
+                await setDoc(doc(db, 'family', 'data'), { config: newConfig }, { merge: true });
+            };
+
             const doReset = async () => {
                 await setDoc(doc(db, 'family', 'data'), { score: 0, history: [], config: config });
                 setModal(prev => ({...prev, open: false}));
             };
 
-            // --- GESTORE CLICK UNIFICATO ---
             const handleItemClick = (item, secType) => {
                 if (editMode) {
                     setUpsert({open:true, type:secType, data:item});
                     return;
                 }
-                
-                // Calcola punti (Shop e Loss sono negativi)
                 let finalPts = item.pts;
                 if (secType === 'shop') finalPts = -Math.abs(item.cost);
                 if (secType === 'loss') finalPts = -Math.abs(item.pts);
-
-                // Etichetta
                 const label = secType === 'shop' ? `🛍️ ${item.name}` : item.label;
-
-                // LOGICA CONFERMA: Solo se è "isBig" (Bugia) 
                 if (item.isBig) {
-                    setModal({
-                        open: true, 
-                        title: 'Attenzione!', 
-                        msg: `Confermi: ${item.label}?`, 
-                        action: () => runAction(finalPts, label, secType), 
-                        destructive: true
-                    });
+                    setModal({open: true, title: 'Attenzione!', msg: `Confermi: ${item.label}?`, action: () => runAction(finalPts, label, secType), destructive: true});
                 } else {
-                    // Altrimenti esegui SUBITO
                     runAction(finalPts, label, secType);
                 }
             };
@@ -264,39 +274,49 @@
                     <div className="p-5 space-y-8 max-w-md mx-auto">
                         {editMode && <div className="bg-yellow-100 text-yellow-800 p-3 rounded-xl text-center text-xs font-bold animate-pulse">MODALITÀ MODIFICA ATTIVA</div>}
                         
-                        {[
-                            {k:'gains', t:'gain', l:'Guadagna', i:<Icons.Trophy className="w-6 h-6 text-green-600"/>, c:'bg-green-100', btn:'bg-green-500'},
-                            {k:'losses', t:'loss', l:'Penalità', i:<Icons.AlertCircle className="w-6 h-6 text-red-600"/>, c:'bg-red-100', btn:'bg-red-500'},
-                            {k:'shop', t:'shop', l:'Premi', i:<Icons.ShoppingBag className="w-6 h-6 text-purple-600"/>, c:'bg-purple-100', btn:'bg-purple-500'}
-                        ].map(sec => (
-                            <section key={sec.k} className="animate-in slide-in-from-bottom-4 duration-500">
-                                <div className="flex justify-between items-center mb-4 px-1">
-                                    <div className="flex items-center gap-3"><div className={`p-2 rounded-xl ${sec.c}`}>{sec.i}</div><h2 className="font-bold text-slate-700 text-lg">{sec.l}</h2></div>
-                                    {editMode && <button onClick={()=>setUpsert({open:true, type:sec.t, data:null})} className={`${sec.btn} text-white p-2 rounded-lg shadow`}><Icons.Plus/></button>}
-                                </div>
-                                <div className={`grid ${sec.k==='shop'?'grid-cols-1':'grid-cols-2'} gap-3`}>
-                                    {config[sec.k].map(item => (
-                                        <button key={item.id} disabled={!editMode && sec.k==='shop' && score < item.cost} 
-                                            onClick={() => handleItemClick(item, sec.t)}
-                                            className={`relative p-4 rounded-3xl border-2 text-left transition-all active:scale-95 shadow-sm bg-white border-slate-100 ${sec.k==='shop'?'flex justify-between items-center':'flex flex-col justify-between h-32'} ${editMode?'border-dashed border-slate-300':''} ${item.special?'bg-gradient-to-br from-amber-50 to-orange-50 border-orange-100 col-span-2':''} ${sec.k==='shop'&&score<item.cost&&!editMode?'opacity-50 grayscale':''}`}
+                        {['gain', 'loss', 'shop'].map(secKey => {
+                            const secConfig = config.sections[secKey];
+                            const items = secKey === 'gain' ? config.gains : secKey === 'loss' ? config.losses : config.shop;
+                            
+                            return (
+                                <section key={secKey} className="animate-in slide-in-from-bottom-4 duration-500">
+                                    <div className="flex justify-between items-center mb-4 px-1">
+                                        <div 
+                                            onClick={() => updateSection(secKey)}
+                                            className={`flex items-center gap-3 ${editMode ? 'cursor-pointer p-1 rounded hover:bg-black/5' : ''}`}
                                         >
-                                            {editMode && <div onClick={(e)=>{e.stopPropagation(); delItem(sec.t, item.id)}} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full z-10"><Icons.X className="w-4 h-4"/></div>}
-                                            {sec.k!=='shop' ? (
-                                                <>
-                                                    <div className="flex justify-between items-start"><span className="text-3xl">{item.emoji}</span><span className={`font-bold text-lg ${sec.k==='gains'?'text-green-600':'text-red-500'}`}>{sec.k==='gains'?'+':''}{item.pts}</span></div>
-                                                    <div><div className="font-bold text-slate-700 leading-tight">{item.label}</div><div className="text-xs text-slate-400 mt-1">{item.sub}</div></div>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <div className="flex items-center gap-4"><div className="bg-slate-50 w-12 h-12 rounded-xl flex items-center justify-center text-2xl">{item.icon}</div><span className="font-bold text-slate-700">{item.name}</span></div>
-                                                    <span className="font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-lg text-sm">{item.cost} XP</span>
-                                                </>
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
-                        ))}
+                                            <div className={`p-2 rounded-xl text-2xl flex items-center justify-center w-10 h-10 ${secConfig.bg}`}>{secConfig.emoji}</div>
+                                            <h2 className={`font-bold text-slate-700 text-lg ${editMode ? 'underline decoration-dashed decoration-slate-300' : ''}`}>
+                                                {secConfig.title}
+                                            </h2>
+                                            {editMode && <Icons.Edit2 className="w-3 h-3 text-slate-400"/>}
+                                        </div>
+                                        {editMode && <button onClick={()=>setUpsert({open:true, type:secKey, data:null})} className={`${secConfig.btn} text-white p-2 rounded-lg shadow`}><Icons.Plus/></button>}
+                                    </div>
+                                    <div className={`grid ${secKey==='shop'?'grid-cols-1':'grid-cols-2'} gap-3`}>
+                                        {items.map(item => (
+                                            <button key={item.id} disabled={!editMode && secKey==='shop' && score < item.cost} 
+                                                onClick={() => handleItemClick(item, secKey)}
+                                                className={`relative p-4 rounded-3xl border-2 text-left transition-all active:scale-95 shadow-sm bg-white border-slate-100 ${secKey==='shop'?'flex justify-between items-center':'flex flex-col justify-between h-32'} ${editMode?'border-dashed border-slate-300':''} ${item.special?'bg-gradient-to-br from-amber-50 to-orange-50 border-orange-100 col-span-2':''} ${secKey==='shop'&&score<item.cost&&!editMode?'opacity-50 grayscale':''}`}
+                                            >
+                                                {editMode && <div onClick={(e)=>{e.stopPropagation(); delItem(secKey, item.id)}} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full z-10"><Icons.X className="w-4 h-4"/></div>}
+                                                {secKey!=='shop' ? (
+                                                    <>
+                                                        <div className="flex justify-between items-start"><span className="text-3xl">{item.emoji}</span><span className={`font-bold text-lg ${secKey==='gain'?'text-green-600':'text-red-500'}`}>{secKey==='gain'?'+':''}{item.pts}</span></div>
+                                                        <div><div className="font-bold text-slate-700 leading-tight">{item.label}</div><div className="text-xs text-slate-400 mt-1">{item.sub}</div></div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="flex items-center gap-4"><div className="bg-slate-50 w-12 h-12 rounded-xl flex items-center justify-center text-2xl">{item.icon}</div><span className="font-bold text-slate-700">{item.name}</span></div>
+                                                        <span className="font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-lg text-sm">{item.cost} XP</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </section>
+                            );
+                        })}
 
                         <section className="bg-white/80 backdrop-blur rounded-[2rem] p-6 shadow-lg border border-slate-100 mt-8">
                             <div className="flex justify-between items-center mb-4 border-b pb-4"><div className="flex gap-2 items-center"><Icons.History className="text-slate-400"/><span className="font-bold text-slate-500 text-xs tracking-wider">STORICO</span></div><button onClick={()=>setModal({open:true, title:'Reset Totale', msg:'Cancelli tutto lo storico e i punti?', action:doReset, destructive:true})} className="text-xs font-bold text-red-400 flex items-center gap-1 bg-red-50 px-3 py-1 rounded-lg"><Icons.Trash2 className="w-3 h-3"/> Reset</button></div>
