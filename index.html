@@ -5,10 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sfida del Tempo - Cloud</title>
     
-    <!-- Librerie Essenziali (Caricate come GLOBALI per evitare errori di importazione) -->
+    <!-- 1. Stili -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- 2. React (Versione Globale UMD) - Niente import complessi -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 3. Babel (Per tradurre il codice) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
@@ -29,20 +33,41 @@
     <div id="root"></div>
 
     <!-- 
-       IMPORTANTE: Usa 'text/babel' e 'data-type="module"' 
-       per usare sia JSX che gli import di Firebase.
+       IMPORTANTE:
+       - type="text/babel": dice al browser di tradurre il codice.
+       - data-type="module": ci permette di importare Firebase dal web.
     -->
     <script type="text/babel" data-type="module">
-        // 1. Usiamo React dalle variabili globali (evita l'errore "module specifier 'react'")
+        // --- 1. PRENDIAMO REACT DAL BROWSER (Evita errore "module specifier") ---
         const { useState, useEffect, useRef } = React;
         const ReactDOM = window.ReactDOM;
 
-        // 2. Importiamo Firebase direttamente da URL completi (Funziona ovunque)
+        // --- 2. IMPORTIAMO FIREBASE DIRETTAMENTE (Senza mappe complicate) ---
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, increment } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-        // --- ICONE INTEGRATE (SVG diretti per evitare errori di libreria) ---
+        // --- 3. LE TUE CHIAVI (GIA' INSERITE) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDOXOj-abUg2RdTGyABU_FOz-sJEY-5PLk",
+            authDomain: "sfida-tempo-laura-nov2025.firebaseapp.com",
+            projectId: "sfida-tempo-laura-nov2025",
+            storageBucket: "sfida-tempo-laura-nov2025.firebasestorage.app",
+            messagingSenderId: "230236750864",
+            appId: "1:230236750864:web:6694258c50855987e43695"
+        };
+
+        // Inizializzazione Database
+        let app, auth, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch (e) {
+            console.error("Errore avvio Firebase:", e);
+        }
+
+        // --- 4. ICONE (Disegnate a mano per non dipendere da librerie esterne) ---
         const IconBase = ({ children, className, ...props }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>
         );
@@ -60,31 +85,10 @@
             X: (p) => <IconBase {...p}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></IconBase>,
             Pencil: (p) => <IconBase {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></IconBase>,
             RefreshCw: (p) => <IconBase {...p}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></IconBase>,
-            Sparkles: (p) => <IconBase {...p}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></IconBase>
+            WifiOff: (p) => <IconBase {...p}><line x1="1" x2="23" y1="1" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" x2="12.01" y1="20" y2="20"/></IconBase>
         };
 
-        // -----------------------------------------------------------
-        // CONFIGURAZIONE FIREBASE (GIÀ INSERITA DA ME CON I TUOI DATI)
-        // -----------------------------------------------------------
-        const firebaseConfig = {
-            apiKey: "AIzaSyDOXOj-abUg2RdTGyABU_FOz-sJEY-5PLk",
-            authDomain: "sfida-tempo-laura-nov2025.firebaseapp.com",
-            projectId: "sfida-tempo-laura-nov2025",
-            storageBucket: "sfida-tempo-laura-nov2025.firebasestorage.app",
-            messagingSenderId: "230236750864",
-            appId: "1:230236750864:web:6694258c50855987e43695"
-        };
-        // -----------------------------------------------------------
-
-        let app, auth, db;
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-        } catch (e) {
-            console.error("Errore inizializzazione:", e);
-        }
-
+        // --- DATI E LOGICA ---
         const DEFAULT_CONFIG = {
             familyName: "Casa Nostra",
             gains: [
@@ -109,19 +113,7 @@
             ]
         };
 
-        const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, isDestructive }) => {
-            if (!isOpen) return null;
-            return <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-white rounded-3xl shadow-2xl max-w-xs w-full p-5"><h3 className={`text-xl font-bold mb-3 ${isDestructive?'text-red-600':'text-slate-800'}`}>{title}</h3><p className="text-slate-600 mb-6 text-sm">{message}</p><div className="flex gap-2 justify-end"><button onClick={onCancel} className="px-4 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 text-sm">Annulla</button><button onClick={onConfirm} className={`px-5 py-2.5 rounded-xl font-bold text-white shadow-lg active:scale-95 text-sm ${isDestructive?'bg-red-500':'bg-blue-600'}`}>Conferma</button></div></div></div>;
-        };
-
-        const UpsertItemModal = ({ isOpen, type, initialData, onClose, onSave }) => {
-            const [data, setData] = useState({ label: '', sub: '', val: '', emoji: '' });
-            useEffect(() => { if(isOpen) setData(initialData ? { label: initialData.label||initialData.name, sub: initialData.sub||'', val: Math.abs(initialData.pts||initialData.cost), emoji: initialData.emoji||initialData.icon } : { label: '', sub: '', val: '', emoji: '' }); }, [isOpen, initialData]);
-            if (!isOpen) return null;
-            return <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6"><h3 className="text-xl font-bold mb-4 flex items-center gap-2">{initialData?<Icons.Pencil className="w-5 h-5 text-blue-500"/>:<Icons.Plus className="w-5 h-5 text-blue-500"/>}{initialData?'Modifica':'Aggiungi'}</h3><div className="space-y-3"><div><label className="text-xs font-bold text-slate-400">EMOJI</label><input className="w-full p-3 bg-slate-50 rounded-xl border" maxLength={2} value={data.emoji} onChange={e=>setData({...data, emoji:e.target.value})} placeholder="🚀"/></div><div><label className="text-xs font-bold text-slate-400">NOME</label><input className="w-full p-3 bg-slate-50 rounded-xl border font-bold" value={data.label} onChange={e=>setData({...data, label:e.target.value})} placeholder="Nome"/></div>{type!=='shop'&&<div><label className="text-xs font-bold text-slate-400">DETTAGLI</label><input className="w-full p-3 bg-slate-50 rounded-xl border" value={data.sub} onChange={e=>setData({...data, sub:e.target.value})} placeholder="Dettagli"/></div>}<div><label className="text-xs font-bold text-slate-400">VALORE</label><input type="number" className="w-full p-3 bg-slate-50 rounded-xl border font-mono font-bold" value={data.val} onChange={e=>setData({...data, val:e.target.value})}/></div></div><div className="flex gap-2 justify-end mt-6"><button onClick={onClose} className="px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100">Annulla</button><button onClick={()=>{if(!data.label||!data.val)return alert("Manca nome o valore"); onSave({...data, type, id: initialData?.id}); onClose();}} className="px-6 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg">Salva</button></div></div></div>;
-        };
-
-        // --- COMPONENTE NUMERO ANIMATO ---
+        // Componente Animazione Numero
         const AnimatedNumber = ({ value }) => {
             const [displayValue, setDisplayValue] = useState(value);
             useEffect(() => {
@@ -129,19 +121,27 @@
                 const end = value;
                 if (start === end) return;
                 const range = end - start;
-                const incrementTime = Math.abs(Math.floor(1000 / Math.abs(range))); // Velocità basata sulla distanza
+                const incrementTime = Math.abs(Math.floor(1000 / Math.abs(range))); 
                 const timer = setInterval(() => {
-                    if (start === end) {
-                        clearInterval(timer);
-                        return;
-                    }
-                    // Incrementa o decrementa di 1
+                    if (start === end) { clearInterval(timer); return; }
                     start += range > 0 ? 1 : -1;
                     setDisplayValue(start);
-                }, Math.min(incrementTime, 50)); // Max 50ms per step
+                }, Math.min(incrementTime, 50)); 
                 return () => clearInterval(timer);
             }, [value]);
             return <span>{displayValue}</span>;
+        };
+
+        const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, isDestructive }) => {
+            if (!isOpen) return null;
+            return <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"><div className="bg-white rounded-3xl shadow-2xl max-w-xs w-full p-5"><h3 className={`text-xl font-bold mb-3 ${isDestructive?'text-red-600':'text-slate-800'}`}>{title}</h3><p className="text-slate-600 mb-6 text-sm">{message}</p><div className="flex gap-2 justify-end"><button onClick={onCancel} className="px-4 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 text-sm">Annulla</button><button onClick={onConfirm} className={`px-5 py-2.5 rounded-xl font-bold text-white shadow-lg active:scale-95 text-sm ${isDestructive?'bg-red-500':'bg-blue-600'}`}>Conferma</button></div></div></div>;
+        };
+
+        const UpsertItemModal = ({ isOpen, type, initialData, onClose, onSave }) => {
+            const [data, setData] = useState({ label: '', sub: '', val: '', emoji: '' });
+            useEffect(() => { if(isOpen) setData(initialData ? { label: initialData.label||initialData.name, sub: initialData.sub||'', val: Math.abs(initialData.pts||initialData.cost), emoji: initialData.emoji||initialData.icon } : { label: '', sub: '', val: '', emoji: '' }); }, [isOpen, initialData]);
+            if (!isOpen) return null;
+            return <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6"><h3 className="text-xl font-bold mb-4 flex items-center gap-2">{initialData?<Icons.Pencil className="w-5 h-5 text-blue-500"/>:<Icons.Plus className="w-5 h-5 text-blue-500"/>}{initialData?'Modifica':'Aggiungi'}</h3><div className="space-y-3"><div><label className="text-xs font-bold text-slate-400">EMOJI</label><input className="w-full p-3 bg-slate-50 rounded-xl border" maxLength={2} value={data.emoji} onChange={e=>setData({...data, emoji:e.target.value})} placeholder="🚀"/></div><div><label className="text-xs font-bold text-slate-400">NOME</label><input className="w-full p-3 bg-slate-50 rounded-xl border font-bold" value={data.label} onChange={e=>setData({...data, label:e.target.value})} placeholder="Nome"/></div>{type!=='shop'&&<div><label className="text-xs font-bold text-slate-400">DETTAGLI</label><input className="w-full p-3 bg-slate-50 rounded-xl border" value={data.sub} onChange={e=>setData({...data, sub:e.target.value})} placeholder="Dettagli"/></div>}<div><label className="text-xs font-bold text-slate-400">VALORE</label><input type="number" className="w-full p-3 bg-slate-50 rounded-xl border font-mono font-bold" value={data.val} onChange={e=>setData({...data, val:e.target.value})}/></div></div><div className="flex gap-2 justify-end mt-6"><button onClick={onClose} className="px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100">Annulla</button><button onClick={()=>{if(!data.label||!data.val)return alert("Manca nome o valore"); onSave({...data, type, id: initialData?.id}); onClose();}} className="px-6 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg">Salva</button></div></div></div>;
         };
 
         function App() {
@@ -154,12 +154,16 @@
             const prevScore = useRef(0);
             const [modal, setModal] = useState({ open: false, title: '', msg: '', action: null, destructive: false });
             const [upsert, setUpsert] = useState({ open: false, type: 'gain', data: null });
+            const [errorMsg, setErrorMsg] = useState(null);
 
-            // AUTH & SYNC ROBUSTA
             useEffect(() => {
                 const init = async () => { 
                     try { await signInAnonymously(auth); } 
-                    catch(e) { console.error("Login fallito:", e); alert("Impossibile connettersi al database."); setLoading(false); } 
+                    catch(e) { 
+                        console.error("Login fallito:", e); 
+                        setErrorMsg("Errore Auth: " + e.message); 
+                        setLoading(false); 
+                    } 
                 };
                 init();
                 return onAuthStateChanged(auth, user => {
@@ -175,29 +179,23 @@
                         setLoading(false);
                     }, (err) => {
                         console.error("Sync Error:", err);
-                        if(err.code === 'permission-denied') alert("ERRORE PERMESSI: Imposta le regole del database!");
+                        setErrorMsg("Errore DB: " + err.code + ". Controlla Regole.");
                         setLoading(false);
                     });
                     return () => unsub();
                 });
             }, []);
 
-            // Effetto Pulse quando cambia score
             useEffect(() => { if(score!==prevScore.current){setAnimateScore(true); setTimeout(()=>setAnimateScore(false), 500); prevScore.current=score;} }, [score]);
 
-            // AZIONI CON SETDOC MERGE (Più sicuro)
             const runAction = async (pts, desc, type) => {
                 try {
                     await setDoc(doc(db, 'family', 'data'), { 
                         score: increment(pts), 
                         history: arrayUnion({ id:Date.now(), desc, pts, ts:Date.now(), type }) 
                     }, { merge: true });
-                    // IMPORTANTE: Chiude la modale DOPO il salvataggio
                     setModal(prev => ({...prev, open: false})); 
-                } catch(e) { 
-                    console.error(e); 
-                    alert("Errore salvataggio: " + e.message); 
-                }
+                } catch(e) { console.error(e); alert("Errore: " + e.message); }
             };
 
             const saveItem = async (d) => {
@@ -229,6 +227,7 @@
             const lvl = getLvl(score);
 
             if(loading) return <div className="h-screen flex items-center justify-center flex-col"><Icons.RefreshCw className="w-10 h-10 animate-spin text-pink-500"/><p className="text-slate-400 text-xs mt-4">Connessione al Cloud...</p></div>;
+            if(errorMsg) return <div className="h-screen flex items-center justify-center flex-col p-6 text-center"><Icons.WifiOff className="w-16 h-16 text-red-500 mb-4"/><h1 className="text-xl font-bold text-slate-800">Problema di Connessione</h1><p className="text-slate-500 mt-2">{errorMsg}</p></div>;
 
             return (
                 <div className={`min-h-screen pb-32 transition-colors duration-500 ${lvl.b}`} style={{zoom:'1.2'}}>
