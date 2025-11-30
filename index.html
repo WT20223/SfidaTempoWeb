@@ -5,49 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sfida del Tempo - Cloud</title>
     
-    <!-- 1. Stili -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- 2. React (Versione Globale UMD) - Niente import complessi -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- 3. Babel (Per tradurre il codice) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        body { 
-            background-color: #f8fafc; 
-            touch-action: manipulation; 
-            -webkit-tap-highlight-color: transparent; 
-            user-select: none; 
-        }
+        body { background-color: #f8fafc; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
         .animate-pulse-custom { animation: pulse-custom 2s infinite; }
-        @keyframes pulse-custom { 
-            0%, 100% { transform: scale(1); } 
-            50% { transform: scale(1.05); } 
-        }
+        @keyframes pulse-custom { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <!-- 
-       IMPORTANTE:
-       - type="text/babel": dice al browser di tradurre il codice.
-       - data-type="module": ci permette di importare Firebase dal web.
-    -->
     <script type="text/babel" data-type="module">
-        // --- 1. PRENDIAMO REACT DAL BROWSER (Evita errore "module specifier") ---
         const { useState, useEffect, useRef } = React;
         const ReactDOM = window.ReactDOM;
 
-        // --- 2. IMPORTIAMO FIREBASE DIRETTAMENTE (Senza mappe complicate) ---
+        // --- FIREBASE IMPORT ---
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         import { getFirestore, doc, onSnapshot, setDoc, arrayUnion, increment } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-        // --- 3. LE TUE CHIAVI (GIA' INSERITE) ---
+        // --- CONFIGURAZIONE ---
         const firebaseConfig = {
             apiKey: "AIzaSyDOXOj-abUg2RdTGyABU_FOz-sJEY-5PLk",
             authDomain: "sfida-tempo-laura-nov2025.firebaseapp.com",
@@ -57,21 +38,12 @@
             appId: "1:230236750864:web:6694258c50855987e43695"
         };
 
-        // Inizializzazione Database
-        let app, auth, db;
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-        } catch (e) {
-            console.error("Errore avvio Firebase:", e);
-        }
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-        // --- 4. ICONE (Disegnate a mano per non dipendere da librerie esterne) ---
-        const IconBase = ({ children, className, ...props }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>
-        );
-        
+        // --- ICONE ---
+        const IconBase = ({ children, className, ...props }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>);
         const Icons = {
             Trophy: (p) => <IconBase {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M9 22a7 7 0 1 0 6 0A7 7 0 0 0 9 22v-1"/><path d="M11 22v-1"/></IconBase>,
             AlertCircle: (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></IconBase>,
@@ -88,7 +60,6 @@
             WifiOff: (p) => <IconBase {...p}><line x1="1" x2="23" y1="1" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" x2="12.01" y1="20" y2="20"/></IconBase>
         };
 
-        // --- DATI E LOGICA ---
         const DEFAULT_CONFIG = {
             familyName: "Casa Nostra",
             gains: [
@@ -113,7 +84,7 @@
             ]
         };
 
-        // Componente Animazione Numero
+        // --- COMPONENTI UI ---
         const AnimatedNumber = ({ value }) => {
             const [displayValue, setDisplayValue] = useState(value);
             useEffect(() => {
@@ -156,38 +127,47 @@
             const [upsert, setUpsert] = useState({ open: false, type: 'gain', data: null });
             const [errorMsg, setErrorMsg] = useState(null);
 
+            // --- SINCRONIZZAZIONE DB ---
             useEffect(() => {
-                const init = async () => { 
-                    try { await signInAnonymously(auth); } 
-                    catch(e) { 
+                let unsubSnapshot = null;
+                
+                const startSync = async () => {
+                    try {
+                        // 1. Aspetta login (anche se già loggato, conferma lo stato)
+                        await signInAnonymously(auth);
+                        
+                        // 2. Ascolta il DB
+                        unsubSnapshot = onSnapshot(doc(db, 'family', 'data'), (snap) => {
+                            if(snap.exists()) {
+                                const d = snap.data();
+                                setScore(d.score||0); 
+                                setHistory((d.history||[]).sort((a,b)=>b.ts-a.ts));
+                                if(d.config) setConfig(d.config);
+                            } else {
+                                // Se il documento non esiste, crealo
+                                setDoc(doc(db, 'family', 'data'), { score: 0, history: [], config: DEFAULT_CONFIG }, { merge: true });
+                            }
+                            setLoading(false);
+                        }, (err) => {
+                            console.error("Sync Error:", err);
+                            setErrorMsg("Errore Sync: " + err.code);
+                            setLoading(false);
+                        });
+                    } catch(e) { 
                         console.error("Login fallito:", e); 
-                        setErrorMsg("Errore Auth: " + e.message); 
+                        setErrorMsg("Errore Login: " + e.message + " - Verifica in Console Firebase se Auth Anonima è attiva."); 
                         setLoading(false); 
                     } 
                 };
-                init();
-                return onAuthStateChanged(auth, user => {
-                    if(!user) return;
-                    const unsub = onSnapshot(doc(db, 'family', 'data'), (snap) => {
-                        if(snap.exists()) {
-                            const d = snap.data();
-                            setScore(d.score||0); setHistory((d.history||[]).sort((a,b)=>b.ts-a.ts));
-                            if(d.config) setConfig(d.config);
-                        } else {
-                            setDoc(doc(db, 'family', 'data'), { score: 0, history: [], config: DEFAULT_CONFIG });
-                        }
-                        setLoading(false);
-                    }, (err) => {
-                        console.error("Sync Error:", err);
-                        setErrorMsg("Errore DB: " + err.code + ". Controlla Regole.");
-                        setLoading(false);
-                    });
-                    return () => unsub();
-                });
+
+                startSync();
+
+                return () => { if(unsubSnapshot) unsubSnapshot(); };
             }, []);
 
             useEffect(() => { if(score!==prevScore.current){setAnimateScore(true); setTimeout(()=>setAnimateScore(false), 500); prevScore.current=score;} }, [score]);
 
+            // --- AZIONI ---
             const runAction = async (pts, desc, type) => {
                 try {
                     await setDoc(doc(db, 'family', 'data'), { 
@@ -195,7 +175,7 @@
                         history: arrayUnion({ id:Date.now(), desc, pts, ts:Date.now(), type }) 
                     }, { merge: true });
                     setModal(prev => ({...prev, open: false})); 
-                } catch(e) { console.error(e); alert("Errore: " + e.message); }
+                } catch(e) { console.error(e); alert("Errore Salvataggio: " + e.message); }
             };
 
             const saveItem = async (d) => {
@@ -207,6 +187,7 @@
                 else newCfg[k] = [...newCfg[k], newItem];
                 await setDoc(doc(db,'family','data'), {config: newCfg}, {merge:true});
             };
+
             const delItem = async (type, id) => {
                 if(!confirm("Eliminare?")) return;
                 const newCfg = {...config};
@@ -214,15 +195,18 @@
                 newCfg[k] = newCfg[k].filter(i=>i.id!==id);
                 await setDoc(doc(db,'family','data'), {config: newCfg}, {merge:true});
             };
+
             const updateTitle = async () => {
                 const t = prompt("Nome Famiglia:", config.familyName);
                 if(t) await setDoc(doc(db,'family','data'), {config: {...config, familyName:t}}, {merge:true});
             };
+
             const doReset = async () => {
                 await setDoc(doc(db, 'family', 'data'), { score: 0, history: [], config: config });
                 setModal(prev => ({...prev, open: false}));
             };
 
+            // --- RENDER ---
             const getLvl = (s) => s<0?{l:"IN DEBITO",c:"bg-red-500",t:"text-red-600",b:"bg-red-50"}:s>=200?{l:"LEGGENDARIO",c:"bg-yellow-500",t:"text-yellow-600",b:"bg-yellow-50"}:s>=100?{l:"SUPER PRO",c:"bg-green-500",t:"text-green-600",b:"bg-green-50"}:s>=50?{l:"PRO",c:"bg-blue-500",t:"text-blue-600",b:"bg-blue-50"}:{l:"PRINCIPIANTE",c:"bg-slate-400",t:"text-slate-600",b:"bg-slate-50"};
             const lvl = getLvl(score);
 
